@@ -1,1 +1,271 @@
-.
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#172033">
+<title>MenuCraft Studio</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f3f5f9;color:#202938}
+header{background:#172033;color:white;padding:20px}
+header h1{margin:0;font-size:24px}
+header p{margin:7px 0 0;color:#b9c4d5;font-size:12px}
+nav{display:flex;overflow:auto;background:white;border-bottom:1px solid #ddd}
+nav button{flex:1;padding:15px 10px;border:0;background:white;font-weight:bold}
+nav button.active{color:#2563eb;border-bottom:3px solid #2563eb}
+main{padding:16px;max-width:750px;margin:auto}
+section{display:none}
+section.active{display:block}
+.card{background:white;border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px #0000000b}
+h2{font-size:19px;margin-top:0}
+input,select,textarea{width:100%;padding:12px;margin:6px 0 12px;border:1px solid #ccd2dc;border-radius:8px;font-size:15px}
+button.action{background:#2563eb;color:white;border:0;padding:12px 16px;border-radius:8px;font-weight:bold}
+button.danger{background:#dc3545;color:white;border:0;padding:8px;border-radius:7px}
+.item{border-bottom:1px solid #eee;padding:12px 0}
+.small{font-size:12px;color:#687386}
+.result{font-size:21px;font-weight:bold;color:#16834a}
+</style>
+</head>
+<body>
+
+<header>
+<h1>MenuCraft Studio</h1>
+<p>Creado por Fenrir Holdings</p>
+</header>
+
+<nav>
+<button class="active" onclick="tab('menus',this)">Menús</button>
+<button onclick="tab('dishes',this)">Platillos</button>
+<button onclick="tab('stock',this)">Inventario</button>
+<button onclick="tab('costs',this)">Costos</button>
+</nav>
+
+<main>
+
+<section id="menus" class="active">
+<div class="card">
+<h2>Crear menú</h2>
+<input id="menuName" placeholder="Nombre del menú">
+<button class="action" onclick="addMenu()">Crear menú</button>
+</div>
+<div class="card">
+<h2>Mis menús</h2>
+<div id="menuList"></div>
+</div>
+</section>
+
+<section id="dishes">
+<div class="card">
+<h2>Registrar platillo</h2>
+<input id="dishName" placeholder="Nombre del platillo">
+<textarea id="dishDesc" placeholder="Descripción"></textarea>
+<input id="dishPrice" type="number" min="0" placeholder="Precio de venta">
+<button class="action" onclick="addDish()">Guardar platillo</button>
+</div>
+<div class="card">
+<h2>Platillos registrados</h2>
+<div id="dishList"></div>
+</div>
+</section>
+
+<section id="stock">
+<div class="card">
+<h2>Registrar producto</h2>
+<input id="stockName" placeholder="Nombre del ingrediente">
+<select id="stockUnit">
+<option value="kg">Kilogramos</option>
+<option value="g">Gramos</option>
+<option value="L">Litros</option>
+<option value="ml">Mililitros</option>
+<option value="piezas">Piezas</option>
+<option value="cajas">Cajas</option>
+</select>
+<input id="stockQty" type="number" min="0" placeholder="Existencias actuales">
+<input id="stockMin" type="number" min="0" placeholder="Existencia mínima">
+<input id="stockCost" type="number" min="0" step="0.01" placeholder="Costo por unidad">
+<button class="action" onclick="addStock()">Guardar producto</button>
+</div>
+
+<div class="card">
+<h2>Inventario</h2>
+<div id="stockList"></div>
+</div>
+
+<div class="card">
+<h2>Registrar movimiento</h2>
+<select id="movementProduct"></select>
+<input id="movementQty" type="number" min="0" step="any" placeholder="Cantidad">
+<select id="movementType">
+<option value="in">Entrada / Compra</option>
+<option value="out">Salida / Consumo</option>
+</select>
+<button class="action" onclick="moveStock()">Registrar movimiento</button>
+</div>
+</section>
+
+<section id="costs">
+<div class="card">
+<h2>Calculadora de recetas</h2>
+<p class="small">Agrega el costo de la cantidad utilizada de cada ingrediente.</p>
+<div id="ingredients"></div>
+<button class="action" onclick="addIngredient()">+ Ingrediente</button>
+<input id="recipeYield" type="number" min="1" value="1" placeholder="Platillos que rinde la receta">
+<input id="margin" type="number" min="0" max="99" value="40" placeholder="Margen de ganancia (%)">
+<button class="action" onclick="calculate()">Calcular precio</button>
+<div id="calculation"></div>
+</div>
+</section>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const load=key=>JSON.parse(localStorage.getItem(key)||"[]");
+const save=(key,data)=>localStorage.setItem(key,JSON.stringify(data));
+
+let menus=load("mc_menus");
+let dishes=load("mc_dishes");
+let stock=load("mc_stock");
+
+function tab(id,btn){
+document.querySelectorAll("main section").forEach(x=>x.classList.remove("active"));
+document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));
+$(id).classList.add("active");
+btn.classList.add("active");
+render();
+}
+
+function addMenu(){
+let name=$("menuName").value.trim();
+if(!name)return alert("Escribe el nombre del menú");
+menus.push({name,dishes:[]});
+save("mc_menus",menus);
+$("menuName").value="";
+render();
+}
+
+function addDish(){
+let name=$("dishName").value.trim();
+let price=Number($("dishPrice").value);
+if(!name||$("dishPrice").value===""||price<0)return alert("Completa los datos");
+dishes.push({name,desc:$("dishDesc").value,price});
+save("mc_dishes",dishes);
+$("dishName").value="";
+$("dishDesc").value="";
+$("dishPrice").value="";
+render();
+}
+
+function addStock(){
+let name=$("stockName").value.trim();
+let qty=Number($("stockQty").value);
+let min=Number($("stockMin").value||0);
+let cost=Number($("stockCost").value||0);
+if(!name||$("stockQty").value===""||qty<0||cost<0)return alert("Completa los datos");
+stock.push({name,unit:$("stockUnit").value,qty,min,cost});
+save("mc_stock",stock);
+$("stockName").value="";
+$("stockQty").value="";
+$("stockMin").value="";
+$("stockCost").value="";
+render();
+}
+
+function moveStock(){
+let i=Number($("movementProduct").value);
+let qty=Number($("movementQty").value);
+if(!stock[i]||!Number.isFinite(qty)||qty<=0)return alert("Selecciona producto y cantidad");
+if($("movementType").value==="out"&&qty>stock[i].qty)return alert("No hay existencias suficientes");
+stock[i].qty+=$("movementType").value==="in"?qty:-qty;
+save("mc_stock",stock);
+$("movementQty").value="";
+render();
+}
+
+function removeItem(type,i){
+if(!confirm("¿Eliminar este registro?"))return;
+if(type==="menus"){menus.splice(i,1);save("mc_menus",menus)}
+if(type==="dishes"){dishes.splice(i,1);save("mc_dishes",dishes)}
+if(type==="stock"){stock.splice(i,1);save("mc_stock",stock)}
+render();
+}
+
+function addDishToMenu(i){
+if(!dishes.length)return alert("Primero registra platillos");
+let choice=prompt("Escribe el número del platillo:\n"+dishes.map((d,n)=>(n+1)+". "+d.name).join("\n"));
+let n=Number(choice)-1;
+if(!Number.isInteger(n)||!dishes[n])return;
+menus[i].dishes.push(dishes[n]);
+save("mc_menus",menus);
+render();
+}
+
+function esc(s){
+return String(s).replace(/[&<>"']/g,c=>({
+"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+}[c]));
+}
+
+function render(){
+$("menuList").innerHTML=menus.map((m,i)=>`
+<div class="item">
+<b>${esc(m.name)}</b>
+<p>${m.dishes.map(d=>esc(d.name)+" — $"+d.price).join("<br>")||"Sin platillos"}</p>
+<button class="action" onclick="addDishToMenu(${i})">Agregar platillo</button>
+<button class="danger" onclick="removeItem('menus',${i})">Eliminar</button>
+</div>`).join("")||"Todavía no tienes menús.";
+
+$("dishList").innerHTML=dishes.map((d,i)=>`
+<div class="item">
+<b>${esc(d.name)}</b>
+<p>${esc(d.desc)}<br>$${d.price.toFixed(2)}</p>
+<button class="danger" onclick="removeItem('dishes',${i})">Eliminar</button>
+</div>`).join("")||"No hay platillos registrados.";
+
+$("stockList").innerHTML=stock.map((s,i)=>`
+<div class="item">
+<b>${esc(s.name)}</b>
+<p>Existencias: ${s.qty} ${s.unit}<br>
+Costo por unidad: $${s.cost.toFixed(2)}<br>
+<span style="color:${s.qty<=s.min?'#dc3545':'#16834a'}">
+${s.qty<=s.min?'Existencias bajas':'Existencias suficientes'}
+</span></p>
+<button class="danger" onclick="removeItem('stock',${i})">Eliminar</button>
+</div>`).join("")||"No hay productos registrados.";
+
+$("movementProduct").innerHTML=stock.map((s,i)=>
+`<option value="${i}">${esc(s.name)} (${s.qty} ${s.unit})</option>`
+).join("");
+}
+
+function addIngredient(){
+let div=document.createElement("div");
+div.className="item";
+div.innerHTML=`
+<input class="ingredient-name" placeholder="Ingrediente">
+<input class="ingredient-cost" type="number" min="0" step="0.01" placeholder="Costo utilizado ($)">`;
+$("ingredients").appendChild(div);
+}
+
+function calculate(){
+let costs=[...document.querySelectorAll(".ingredient-cost")].map(x=>Number(x.value)||0);
+let total=costs.reduce((a,b)=>a+b,0);
+let y=Math.max(1,Number($("recipeYield").value)||1);
+let margin=Math.min(99,Math.max(0,Number($("margin").value)||0))/100;
+let unit=total/y;
+let price=unit/(1-margin);
+
+$("calculation").innerHTML=`
+<p>Costo total: <b>$${total.toFixed(2)}</b></p>
+<p>Costo por platillo: <b>$${unit.toFixed(2)}</b></p>
+<p class="result">Precio sugerido: $${price.toFixed(2)}</p>
+<p class="small">El margen se calcula sobre el precio de venta. No incluye gastos indirectos.</p>`;
+}
+
+addIngredient();
+render();
+</script>
+</body>
+</html>
